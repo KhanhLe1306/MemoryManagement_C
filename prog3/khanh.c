@@ -16,6 +16,8 @@ int verbose; /* non-zero if -v option was specified */
 int msize; /* total memory size */
 
 int takenIndex = 0;
+int deferredIndex = 0;
+int totalAllocateSize = 0; 
 
 /*------------------------------------------------------------------------*/
 /* The free list is ordered by address, from smallest address to largest. */
@@ -39,6 +41,12 @@ struct taken
     uint size;
     uint addr;
 } takenlist[10];
+
+struct deferred{
+    int id;
+    uint size;
+} deferredlist[10];
+
 /*---------------------------------------------*/
 /* Display the free lists for all size blocks. */
 /*---------------------------------------------*/
@@ -68,9 +76,19 @@ void show_free_list(void)
 /* Display occupied memory */
 /*---------------------------------------------*/
 void show_taken(void){
-    for (int i = 0; i < 10; i++){
+    printf("Show takenlist: \n");
+    for (int i = 0; i < takenIndex; i++){
         if(takenlist[i].id >0){
             printf("id: %d, size: %d, address: %d\n", takenlist[i].id, takenlist[i].size, takenlist[i].addr);
+        }
+    }
+}
+
+void show_deferredlist(void){
+    printf("Show deferredlist: \n");
+    for (int i = 0; i < deferredIndex; i++){
+        if(deferredlist[i].id > 0 ){
+            printf("id: %d, size: %d\n", deferredlist[i].id, deferredlist[i].size);
         }
     }
 }
@@ -142,42 +160,74 @@ int get_request(int *rid, int *rtype, uint *size)
 /*------------------------------------------*/
 int allocate(int *rid, uint *rsize)
 {
+    int returnAddress = 0;
     struct freg *p;
     /* XXX - TO BE WRITTEN */
-    printf("Doing allocation\n");
+    //printf("Doing allocation\n");
     // Check in the freelist to see which one is best fit
     for (p = freelist; p != NULL; p = p->next)
     {
         //printf("%7d  %4d\n", p->addr, p->size);
         if(p->size > *rsize){
-            printf("Assign to this freelist: %7d  %4d\n", p->addr, p->size);
+            //printf("Assign to this freelist: %7d  %4d\n", p->addr, p->size);
+
+            //insert into taken array
+            takenlist[takenIndex].id = *rid;
+            takenlist[takenIndex].size = *rsize;
+            takenlist[takenIndex].addr = p->addr;
+            takenIndex++;
+
+            returnAddress = p->addr;
+
+            // update totalAllocateSize
+            totalAllocateSize += *rsize;
+
             // use p instead of freelist
-            freelist->size = freelist->size - *rsize;
-            break;
+            p->size = p->size - *rsize;
+
+            //update freelist address
+            p->addr += *rsize;
+            // if(p->addr == 0){
+            //     p->addr += *rsize;
+            // }else{
+            //     p->addr += (*rsize - 1);
+            // }
+
+            show_free_list();
+            return returnAddress;
+            //break;
         }
     }
+
+    // Reach here if there the freelist is not big enough
+    // Push to the deferredlist
+    deferredlist[deferredIndex].id = *rid;
+    deferredlist[deferredIndex].size = *rsize;
+    deferredIndex++;
 
     //update freelist size
     //freelist->size = freelist->size - *rsize;
 
     //insert into taken array
-    takenlist[takenIndex].id = *rid;
-    takenlist[takenIndex].size = *rsize;
-    takenlist[takenIndex].addr = freelist->addr;
-    takenIndex++;
+    // takenlist[takenIndex].id = *rid;
+    // takenlist[takenIndex].size = *rsize;
+    // takenlist[takenIndex].addr = freelist->addr;
+    // takenIndex++;
 
     //update freelist address
-    if(freelist->addr == 0){
-        freelist->addr += (*rsize - 1);
-    }else{
-        freelist->addr += *rsize;
-    }
+    // if(freelist->addr == 0){
+    //     freelist->addr += (*rsize - 1);
+    // }else{
+    //     freelist->addr += *rsize;
+    // }
     
     //printf("size: %d", freelist->size);
+
     show_free_list();
-    printf("Head is pointing to: %d %d\n",freelist->addr, freelist->size);
+    // printf("Head is pointing to: %d %d\n",freelist->addr, freelist->size);
     show_taken();
-    return 0;
+    show_deferredlist();
+    return -1;
 }
 
 /*--------------------------*/
@@ -186,18 +236,56 @@ int allocate(int *rid, uint *rsize)
 void deallocate(int *rid)
 {
     printf("Doing deallocation\n");
+    struct freg *temp;
+    struct freg *p;
     for (int i = 0; i < 10; i++){
-        if(takenlist[i].id == *rid){
-            struct freg *temp;
+        // Find the corresponding segment in the takenlist 
+        if(takenlist[i].id == *rid){    // Find by id
+            printf("Found id %d\n", *rid);
             temp->addr = takenlist[i].addr;
             temp->size = takenlist[i].size;
-            temp->next = freelist;
-            freelist = temp;  
-
+        
             // update the doubly linked list
+
+            printf("Head is pointing to: %d %d\n",freelist->addr, freelist->size);
+            // temp->next = freelist;
+            // freelist->prev = temp;
+            // freelist = temp;  
+            printf("Head is pointing to: %d %d\n",freelist->addr, freelist->size);
+
+            // Check if this block is adjacent to any free block to merge and update
+            // By checking the ( temp->addr + temp->size + 1 ) == p-> addr ? 
+
+            // for (p = freelist; p != NULL; p = p->next)
+            // {
+            //     printf("Inside loop\n");
+            //     // if(temp->addr == 0 && p->addr == (temp->addr + temp->size)){   // If exists a free block RIGHT AFTER this deallocating block   => merge
+            //     //     p->addr = 0;
+            //     //     p->size += p->size + temp->size;
+            //     //     break;
+            //     // }else if(temp->addr != 0 && p->addr == (temp->addr + temp->size + 1)){
+            //     //     p->addr = temp->addr;
+            //     //     p->size += p->size + temp->size;
+            //     //     break;
+            //     // }
+            // }
+
+            // printf("Outside for loop\n");
+            //remove from the takenlist
+
+            // printf("Head is pointing to: %d %d\n",freelist->addr, freelist->size);
+            // for (p = freelist; p != NULL; p = p->next)
+            // {
+            //     printf("%7d  %4d\n", p->addr, p->size);
+            // }
+
+            //show_free_list();
+            takenlist[i].id = 0;
+
+            //update totalAllocateSize
+            totalAllocateSize -= takenlist[i].size;
+            break;
         }
-        //remove from the takenlist
-        takenlist[i].id = 0;
     }
 
     show_free_list();
@@ -219,7 +307,7 @@ int main(int argc, char *argv[])
     int rid;    /* request ID */
     int rtype;  /* request type */
     uint rsize; /* request size */
-    int ok;     /* non-zero if allocation succeeded */
+    int addr;     /* non-negative if allocation succeeded */
 
     /*------------*/
     /* Read msize */
@@ -263,11 +351,11 @@ int main(int argc, char *argv[])
         /*----------------------*/
         if (rtype == REQUEST_ALLOCATE)
         { /* allocation request */
-            ok = allocate(&rid, &rsize);
-            if (ok)
+            addr = allocate(&rid, &rsize);
+            if (addr != -1)
             { /* request was successful */
                 /* XXX - TO BE WRITTEN */
-                printf("   Request Success; addr = %u.\n", 999);
+                printf("   Request Success; addr = %u. Totall allocate size = %d\n", addr, totalAllocateSize);
             }
             else
             { /* defer the request */
