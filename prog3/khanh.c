@@ -47,6 +47,7 @@ struct deferred{
     uint size;
 } deferredlist[10];
 
+
 /*---------------------------------------------*/
 /* Display the free lists for all size blocks. */
 /*---------------------------------------------*/
@@ -193,7 +194,7 @@ int allocate(int *rid, uint *rsize)
             //     p->addr += (*rsize - 1);
             // }
 
-            show_free_list();
+            //show_free_list();
             return returnAddress;
             //break;
         }
@@ -235,49 +236,104 @@ int allocate(int *rid, uint *rsize)
 /*--------------------------*/
 void deallocate(int *rid)
 {
+    struct freg *p1;
+
     printf("Doing deallocation\n");
-    struct freg *temp;
-    struct freg *p;
+    printf("Before deallocation, Head is pointing to: %d %d\n", freelist->addr, freelist->size);
+    show_free_list();
+    p1 = freelist;
+    printf("P1 is pointing to: %d %d\n\n\n", p1->addr, p1->size);
     for (int i = 0; i < 10; i++){
         // Find the corresponding segment in the takenlist 
         if(takenlist[i].id == *rid){    // Find by id
+            //show_free_list();
+            struct freg *temp = (struct freg *)malloc(sizeof(struct freg));
+            printf("Address of freelist = %x\n", freelist);
+            printf("Address of temp = %x\n", temp);
+            printf("Head is pointing to: %d %d\n\n\n", freelist->addr, freelist->size);
             printf("Found id %d\n", *rid);
             temp->addr = takenlist[i].addr;
             temp->size = takenlist[i].size;
-        
+            printf("Found block at %d\n", temp->addr);
+            printf("Head is pointing to: %d %d\n\n\n", freelist->addr, freelist->size);
+            printf("P1 is pointing to: %d %d\n\n\n", p1->addr, p1->size);
+            //show_free_list();
+
+            //show_free_list();
             // update the doubly linked list
 
-            printf("Head is pointing to: %d %d\n",freelist->addr, freelist->size);
-            // temp->next = freelist;
-            // freelist->prev = temp;
-            // freelist = temp;  
-            printf("Head is pointing to: %d %d\n",freelist->addr, freelist->size);
+            //printf("Head is pointing to: %d %d\n",freelist->addr, freelist->size);
+            
+            if(temp->addr < freelist->addr){
+                printf("Block %d is on the left side of the freelist \n", *rid);
+                temp->next = freelist;
+                freelist->prev = temp;
+                freelist = temp;
+            }else{
+                printf("Block %d is on the right side of the freelist \n", *rid);
+                //p1 = freelist;
+                printf("freelist->addr = %d  ,   freelist->size = %d\n", freelist->addr, freelist->size);
+                printf("p1->addr = %d  ,   p1->size = %d\n", p1->addr, p1->size);
+                while(p1 != NULL){
+                    printf("Inside while loop!\n");
+                    // If the block is on right of the p
+                    printf("p->addr = %d", p1->addr);
+                    printf("p->size = %d", p1->size);
+                    printf("temp->addr = %d\n", temp->addr);
+                    printf("temp->size = %d\n", temp->size);
+                    if(p1->addr + p1->size == temp->addr){
+                        printf("First IF\n");
+                        temp->next = p1->next;
+                        temp->prev = p1;
+                        p1->next->prev = temp;
+                        p1->next = temp;
+                        break;
+                    }
 
-            // Check if this block is adjacent to any free block to merge and update
-            // By checking the ( temp->addr + temp->size + 1 ) == p-> addr ? 
+                    if (temp->addr + temp->size == p1->addr){
+                        printf("Second IF\n");
+                        temp->prev = p1->prev;
+                        temp->next = p1;
+                        p1->prev->next = temp;
+                        break;
+                    }
+                    p1 = p1->next;
+                }            
+            }
 
-            // for (p = freelist; p != NULL; p = p->next)
-            // {
-            //     printf("Inside loop\n");
-            //     // if(temp->addr == 0 && p->addr == (temp->addr + temp->size)){   // If exists a free block RIGHT AFTER this deallocating block   => merge
-            //     //     p->addr = 0;
-            //     //     p->size += p->size + temp->size;
-            //     //     break;
-            //     // }else if(temp->addr != 0 && p->addr == (temp->addr + temp->size + 1)){
-            //     //     p->addr = temp->addr;
-            //     //     p->size += p->size + temp->size;
-            //     //     break;
-            //     // }
+            // Check if temp (deallocate block) is on the left or right of freelist (head)
+            // if(temp->addr < freelist->addr){
+            //     printf("Block %d is on the left side of the freelist \n", *rid);
+            //     temp->next = freelist;
+            //     freelist->prev = temp;
+            //     freelist = temp;
+            // }else{
+            //     printf("Block %d is on the right side of the freelist \n", *rid);
+            //     //p1 = freelist;
+            //     printf("freelist->addr = %d  ,   freelist->size = %d\n", freelist->addr, freelist->size);
+            //     printf("p1->addr = %d  ,   p1->size = %d\n", p1->addr, p1->size);
+            //     while(p1 != NULL){
+            //         printf("Inside while loop!\n");
+            //         // If the block is on right of the p
+            //         printf("p->addr + p->size = %d    ", p1->addr + p1->size);
+            //         printf("temp->addr = %d\n", temp->addr);
+            //         if(p1->addr + p1->size == temp->addr){
+            //             printf("Updating the doubly linked list\n");
+            //             temp->next = p1->next;
+            //             temp->prev = p1;
+            //             p1->next->prev = temp;
+            //             p1->next = temp;
+            //             break;
+            //         }
+            //         p1 = p1->next;
+            //     }            
             // }
 
-            // printf("Outside for loop\n");
-            //remove from the takenlist
+            //printf("Block %d is on the left side of the freelist with addr = %d\n", *rid, temp->addr);
 
-            // printf("Head is pointing to: %d %d\n",freelist->addr, freelist->size);
-            // for (p = freelist; p != NULL; p = p->next)
-            // {
-            //     printf("%7d  %4d\n", p->addr, p->size);
-            // }
+            printf("After dealloction: \n");
+            show_free_list();
+            printf("Head is pointing to: %d %d\n\n\n", freelist->addr, freelist->size);
 
             //show_free_list();
             takenlist[i].id = 0;
@@ -288,8 +344,8 @@ void deallocate(int *rid)
         }
     }
 
-    show_free_list();
-    show_taken();
+    //show_free_list();
+    //show_taken();
     /* XXX - TO BE WRITTEN */
 }
 
@@ -355,7 +411,7 @@ int main(int argc, char *argv[])
             if (addr != -1)
             { /* request was successful */
                 /* XXX - TO BE WRITTEN */
-                printf("   Request Success; addr = %u. Totall allocate size = %d\n", addr, totalAllocateSize);
+                printf("   Request Success; addr = 0x%08x. Totall allocate size = %d\n", addr, totalAllocateSize);
             }
             else
             { /* defer the request */
