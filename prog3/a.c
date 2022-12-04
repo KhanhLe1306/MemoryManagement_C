@@ -294,18 +294,23 @@ void deallocate(int *rid)
 
                     if(p1->addr + p1->size == temp->addr){
                         //printf("First IF\n");
-                        temp->next = p1->next;
-                        temp->prev = p1;
-                        p1->next->prev = temp;
-                        p1->next = temp;
+                        // temp->next = p1->next;
+                        // temp->prev = p1;
+                        // p1->next->prev = temp;
+                        // p1->next = temp;
+
+                        p1->size += temp->size;
                         break;
                     }
 
                     if (temp->addr + temp->size == p1->addr){
                         //printf("Second IF\n");
-                        temp->prev = p1->prev;
-                        temp->next = p1;
-                        p1->prev->next = temp;
+                        // temp->prev = p1->prev;
+                        // temp->next = p1;
+                        // p1->prev->next = temp;
+
+                        p1->addr = temp->addr;
+                        p1->size += temp->size;
                         break;
                     }
                     p1 = p1->next;
@@ -366,7 +371,45 @@ void deallocate(int *rid)
 void dodef(void)
 {
     printf("Doing deferedAllocation\n");
-    /* XXX - TO BE WRITTEN */
+    for (int i = 0; i < 10; i++){
+        int returnAddress = 0;
+        int rid = deferredlist[i].id;
+        uint size = deferredlist[i].size;
+        struct freg *p;
+        for (p = freelist; p != NULL; p = p->next)
+        {
+            if(p->size >= size){
+                //printf("Assign to this freelist: %7d  %4d\n", p->addr, p->size);
+
+                //insert into taken array
+                takenlist[takenIndex].id = rid;
+                takenlist[takenIndex].size = size;
+                takenlist[takenIndex].addr = p->addr;
+                takenIndex++;
+
+                returnAddress = p->addr;
+
+                // update totalAllocateSize
+                totalAllocateSize += size;
+
+                // use p instead of freelist
+                p->size = p->size - size;
+
+                //update freelist address
+                p->addr += size;
+                // if(p->addr == 0){
+                //     p->addr += *rsize;
+                // }else{
+                //     p->addr += (*rsize - 1);
+                // }
+
+                //show_free_list();
+                //return returnAddress;
+                //break;
+                printf("    Deferred request %d allocated; addr = 0x%08x. Total allocate size = %d\n", rid, returnAddress, totalAllocateSize);
+            }
+        }
+    }
 }
 
 int main(int argc, char *argv[])
@@ -426,7 +469,7 @@ int main(int argc, char *argv[])
             }
             else
             { /* defer the request */
-                printf("   Request deferred.\n");
+                printf("   Request deferred.  Totall allocate size = %d\n", totalAllocateSize);
                 /* XXX - TO BE WRITTEN */
             }
         }
@@ -438,7 +481,7 @@ int main(int argc, char *argv[])
             /*----------------------------------------------*/
             /* Try to perform deferred allocation requests. */
             /*----------------------------------------------*/
-            dodef();
+            //dodef();
         }
     }
 
